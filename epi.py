@@ -1,61 +1,49 @@
 import numpy as np
 import pandas as pd
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, f1_score
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV, train_test_split
-from helpers import plot_results, show_cm
-from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
+from sklearn.model_selection import train_test_split
+from helpers import plot_results, plot_pca_n
+from train import train_svm, train_knn_nc
+import matplotlib.pyplot as plt
 
-def epi():
+def main():
     # load dataset
     df = pd.read_csv("./datasets/epi/data.csv")
     
     # get features and target values
     X = df.drop(columns=['y', 'Unnamed: 0'])
-    # y = df['y'] # multiclass
-    y = df['y'].replace({2:0, 3:0, 4:0, 5:0}) # binary class
+    y = df['y'] # multiclass
 
-    # calculate the most correlated features with the output
-    number_of_features = 10
-    threshold = sorted(X.corrwith(y),reverse=True)[number_of_features]
-    print(f'Correlation threshold: {threshold}')
-    most_corr_cols = X.columns[X.corrwith(y) > threshold]
-    print('Number of Corr Columns: ' + str(len(most_corr_cols)))
-    if(len(most_corr_cols) ==0):
-        return
-    
-    X = X[most_corr_cols].values
-    y = y.values
-
-    # preprocess
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
+    # Plot labels distribution
+    # df['y'].value_counts().plot.bar()
+    # plt.show()
+    # return
 
     X_train, X_test, y_train, y_test =  train_test_split(X, y, test_size=0.4, random_state=0)
 
-    parameters = [
-        {'kernel':['rbf'], 'C':[ 0.01, 0.1, 1, 10], 'gamma': [0.01, 1, 10, 100]},
-        {'kernel': ['linear'], 'C':[0.01, 0.1, 1, 10]}
-    ]
-    clf = GridSearchCV(SVC(), parameters, scoring='f1_macro', return_train_score=True)
-
-    # clf = GridSearchCV(KNeighborsClassifier(), {'n_neighbors': [3,5,7,9,11]}, return_train_score=True)
-
-    # clf = GridSearchCV(NearestCentroid(), {}, return_train_score=True)
-
-    clf.fit(X_train, y_train)
-
-    print("BEST PARAMS COMBINATION: ", clf.best_params_)
-    y_pred = clf.predict(X_test)
-    print(f'Accuracy: {accuracy_score(y_test, y_pred)}')
-    print(f'F1 Score: {f1_score(y_test, y_pred,average="macro")}')
-    # confusion matrix
-    show_cm(y_test, y_pred)
+    # preprocess
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
     
-    # plot times and score charts
-    plot_results(clf.cv_results_)
+    # plot_pca_n(X_train)
+    # return
+    PCA_COMPONENTS=50
+    svm_params = [        
+      {"kernel": "poly", "C":1, "gamma": 1, "degree":2},
+      {"kernel": "linear", "C":1},
+      {"kernel": "linear", "C":10},
+      {"kernel": "linear", "C":0.1},
+      {"kernel": "rbf", "C":1, "gamma": 0.01},
+      {"kernel": "rbf", "C":100, "gamma": 0.01},
+      {"kernel": "sigmoid", "C":1, "gamma":1},
+    ]
+    # svm_models, svm_data = train_svm(X_train, X_test, y_train, y_test, svm_params, PCA_COMPONENTS)
+    # plot_results(svm_data, ["mean_fit_time", "mean_score_time", "f1_test_score","f1_train_score","acc_test_score","acc_train_score"])
+
+    knn_nc_models, knn_nc_data = train_knn_nc(X_train, X_test, y_train, y_test, PCA_COMPONENTS)
+    plot_results(knn_nc_data, ["mean_fit_time", "mean_score_time", "f1_test_score","f1_train_score","acc_test_score","acc_train_score"])
 
 
 if __name__ == "__main__":
-    epi()
+    main()
